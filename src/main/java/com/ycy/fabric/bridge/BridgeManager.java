@@ -70,22 +70,29 @@ public class BridgeManager {
         YcyModClient.LOGGER.info("[YCY] Running npm install...");
         new Thread(() -> {
             try {
-                if (new ProcessBuilder("node", "--version").start().waitFor() != 0) {
-                    lastError = "未安装 Node.js, 请访问 nodejs.org";
-                    return;
+                // Windows: use cmd /c to inherit full system PATH
+                String os = System.getProperty("os.name").toLowerCase();
+                boolean isWin = os.contains("win");
+                ProcessBuilder pb;
+                if (isWin) {
+                    pb = new ProcessBuilder("cmd", "/c", "npm install --no-audit --no-fund")
+                            .directory(bridgeDir.toFile()).redirectErrorStream(true);
+                } else {
+                    pb = new ProcessBuilder("npm", "install", "--no-audit", "--no-fund")
+                            .directory(bridgeDir.toFile()).redirectErrorStream(true);
                 }
-                Process p = new ProcessBuilder("npm", "install", "--no-audit", "--no-fund")
-                        .directory(bridgeDir.toFile()).redirectErrorStream(true).start();
+                Process p = pb.start();
                 String out = new String(p.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
                 if (p.waitFor() == 0) {
                     lastError = "";
                     startBridge();
                 } else {
-                    lastError = "npm install 失败";
-                    YcyModClient.LOGGER.error("[YCY] npm install failed: {}", out);
+                    lastError = "npm install 失败: " + out.substring(0, Math.min(out.length(), 100));
+                    YcyModClient.LOGGER.error("[YCY] npm failed: {}", out);
                 }
             } catch (Exception e) {
                 lastError = "安装失败: " + e.getMessage();
+                YcyModClient.LOGGER.error("[YCY] npm error", e);
             }
         }, "YCY-NpmInstall").start();
     }
@@ -96,8 +103,16 @@ public class BridgeManager {
         if (bridgeProcess != null && bridgeProcess.isAlive()) { connectWs(); return; }
         YcyModClient.LOGGER.info("[YCY] Starting node server.js...");
         try {
-            ProcessBuilder pb = new ProcessBuilder("node", "server.js")
-                    .directory(bridgeDir.toFile()).redirectErrorStream(true);
+            String os = System.getProperty("os.name").toLowerCase();
+            boolean isWin = os.contains("win");
+            ProcessBuilder pb;
+            if (isWin) {
+                pb = new ProcessBuilder("cmd", "/c", "node server.js")
+                        .directory(bridgeDir.toFile()).redirectErrorStream(true);
+            } else {
+                pb = new ProcessBuilder("node", "server.js")
+                        .directory(bridgeDir.toFile()).redirectErrorStream(true);
+            }
             bridgeProcess = pb.start();
             bridgeAlive = true;
             lastError = "";
