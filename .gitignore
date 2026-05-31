@@ -29,6 +29,7 @@ crash-reports/
 
 # Node (bridge)
 node_modules/
+!src/main/resources/ycy-bridge/node_modules/
 config/ycy-link/bridge/node_modules/
 
 # Mod config (user-specific, don't commit)

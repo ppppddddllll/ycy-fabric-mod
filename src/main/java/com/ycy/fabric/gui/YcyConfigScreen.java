@@ -252,8 +252,14 @@ public class YcyConfigScreen extends Screen {
         int statusColor;
         BridgeManager bm = BridgeManager.instance();
         if (!bm.isBridgeRunning()) {
-            statusText = "桥接未启动 (Node.js 安装了吗?)";
-            statusColor = 0xFF5555;
+            String err = bm.getLastError();
+            if (err.contains("安装") || err.contains("npm")) {
+                statusText = "首次启动中，正在后台 npm install... (约30秒)";
+                statusColor = 0xFFFF55;
+            } else {
+                statusText = "桥接未启动 — 需安装 Node.js 18+";
+                statusColor = 0xFF5555;
+            }
         } else if (!bm.isWsOpen()) {
             statusText = "WebSocket 未连接";
             statusColor = 0xFF5555;
