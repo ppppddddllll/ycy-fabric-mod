@@ -28,6 +28,9 @@ function log(level, ...args) {
 let chat = null;
 let isReady = false;
 let currentConfig = { uid: null, token: null, userId: null, appId: null };
+let imReconnectTimer = null;
+let imReconnectDelay = 1000;        // Start at 1s, max 30s
+const IM_MAX_RECONNECT_DELAY = 30000;
 
 // ===================== IM Lifecycle =====================
 async function getGameSign(uid, token) {
@@ -43,6 +46,34 @@ async function getGameSign(uid, token) {
         throw new Error(`game_sign failed: ${JSON.stringify(payload)}`);
     }
     return { appId: payload.data.appid, userSig: payload.data.sign };
+}
+
+function scheduleIMReconnect() {
+    if (imReconnectTimer) clearTimeout(imReconnectTimer);
+
+    if (!currentConfig.uid || !currentConfig.token) {
+        log('WARN', 'No credentials saved, cannot reconnect IM');
+        return;
+    }
+
+    const delay = imReconnectDelay;
+    imReconnectDelay = Math.min(imReconnectDelay * 2, IM_MAX_RECONNECT_DELAY);
+    log('INFO', `IM reconnect scheduled in ${delay}ms`);
+
+    imReconnectTimer = setTimeout(async () => {
+        imReconnectTimer = null;
+        try {
+            await initIM(
+                currentConfig.uid.replace(/^game_/, ''),
+                currentConfig.token
+            );
+            // On success, schedule a status refresh
+            broadcast({ type: 'status', isReady: true, uid: currentConfig.uid });
+        } catch (e) {
+            log('ERROR', 'IM reconnect failed:', e.message);
+            scheduleIMReconnect();
+        }
+    }, delay);
 }
 
 async function initIM(uid, token) {
@@ -61,23 +92,40 @@ async function initIM(uid, token) {
 
     chat.on(TencentCloudChat.EVENT.SDK_READY, () => {
         isReady = true;
+        imReconnectDelay = 1000;  // Reset backoff on success
         log('INFO', `IM SDK READY, user: ${chat.getLoginUser()}`);
         broadcast({ type: 'status', isReady: true, uid: gameUid, userId: rawUid });
     });
 
-    chat.on(TencentCloudChat.EVENT.KICKED_OUT, async () => {
-        log('WARN', 'IM kicked out, reconnecting in 5s...');
-        isReady = false;
-        broadcast({ type: 'status', isReady: false });
-        setTimeout(() => {
-            if (currentConfig.uid && currentConfig.token) {
-                initIM(currentConfig.uid, currentConfig.token).catch(e => log('ERROR', 'Reconnect failed:', e.message));
+    chat.on(TencentCloudChat.EVENT.KICKED_OUT, (event) => {
+        log('WARN', 'IM kicked out, type:', event?.data?.type || 'unknown');
+        handleIMDisconnect();
+    });
+
+    chat.on(TencentCloudChat.EVENT.SDK_NOT_READY, () => {
+        log('WARN', 'IM SDK not ready');
+        if (isReady) {
+            handleIMDisconnect();
+        }
+    });
+
+    chat.on(TencentCloudChat.EVENT.NET_STATE_CHANGE, (event) => {
+        const state = event?.data?.state;
+        log('INFO', 'IM network state:', state);
+        if (state === 'DISCONNECTED' || state === 'RECONNECTING') {
+            if (isReady) {
+                isReady = false;
+                broadcast({ type: 'status', isReady: false });
             }
-        }, 5000);
+        }
     });
 
     chat.on(TencentCloudChat.EVENT.ERROR, (e) => {
-        log('WARN', 'IM SDK error:', e?.message || e);
+        log('WARN', 'IM SDK error:', e?.message || e, 'code:', e?.code);
+        // errorCode 2801 = request timeout, usually recovers
+        if (e?.code !== 2801) {
+            handleIMDisconnect();
+        }
     });
 
     chat.on(TencentCloudChat.EVENT.MESSAGE_RECEIVED, (event) => {
@@ -97,14 +145,21 @@ async function initIM(uid, token) {
     if (res?.data?.repeatLogin) log('WARN', 'Repeat login:', res.data.errorInfo);
 
     await new Promise((resolve, reject) => {
-        const timer = setTimeout(() => reject(new Error('SDK_READY timeout')), 15000);
+        const timer = setTimeout(() => reject(new Error('SDK_READY timeout')), 30000);
         chat.on(TencentCloudChat.EVENT.SDK_READY, () => { clearTimeout(timer); resolve(); });
     });
 
     log('INFO', 'IM initialized successfully');
 }
 
+function handleIMDisconnect() {
+    isReady = false;
+    broadcast({ type: 'status', isReady: false });
+    scheduleIMReconnect();
+}
+
 async function destroyIM() {
+    if (imReconnectTimer) { clearTimeout(imReconnectTimer); imReconnectTimer = null; }
     if (chat) {
         try { await chat.logout(); await chat.destroy(); } catch (e) { log('WARN', 'Destroy IM error:', e.message); }
         chat = null;
