@@ -1,0 +1,13 @@
+{
+    "name": "ycy-bridge",
+    "version": "2.0.0",
+    "description": "YCY Minecraft Mod bridge server - WebSocket + HTTP to IM",
+    "main": "server.js",
+    "scripts": {
+        "start": "node server.js"
+    },
+    "dependencies": {
+        "@tencentcloud/chat": "^3.5.0",
+        "ws": "^8.16.0"
+    }
+}

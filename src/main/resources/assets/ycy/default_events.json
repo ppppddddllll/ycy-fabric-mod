@@ -1,0 +1,114 @@
+[
+    {
+        "event_id": "player_damage",
+        "command_id": "player_damage",
+        "cooldown_ms": 2000,
+        "enabled": true,
+        "display_name": "玩家受伤"
+    },
+    {
+        "event_id": "player_death",
+        "command_id": "player_death",
+        "cooldown_ms": 5000,
+        "enabled": true,
+        "display_name": "玩家死亡"
+    },
+    {
+        "event_id": "entity_killed",
+        "command_id": "entity_killed",
+        "cooldown_ms": 1000,
+        "enabled": true,
+        "display_name": "击杀实体"
+    },
+    {
+        "event_id": "player_join",
+        "command_id": "player_join",
+        "cooldown_ms": 3000,
+        "enabled": true,
+        "display_name": "玩家加入"
+    },
+    {
+        "event_id": "player_leave",
+        "command_id": "player_leave",
+        "cooldown_ms": 3000,
+        "enabled": true,
+        "display_name": "玩家离开"
+    },
+    {
+        "event_id": "player_chat",
+        "command_id": "player_chat",
+        "cooldown_ms": 1000,
+        "enabled": true,
+        "display_name": "玩家聊天"
+    },
+    {
+        "event_id": "block_break",
+        "command_id": "block_break",
+        "cooldown_ms": 500,
+        "enabled": true,
+        "display_name": "破坏方块"
+    },
+    {
+        "event_id": "block_place",
+        "command_id": "block_place",
+        "cooldown_ms": 500,
+        "enabled": true,
+        "display_name": "放置方块"
+    },
+    {
+        "event_id": "block_attack",
+        "command_id": "block_attack",
+        "cooldown_ms": 500,
+        "enabled": true,
+        "display_name": "左键挖方块"
+    },
+    {
+        "event_id": "item_use",
+        "command_id": "item_use",
+        "cooldown_ms": 500,
+        "enabled": true,
+        "display_name": "使用物品"
+    },
+    {
+        "event_id": "player_low_hp",
+        "command_id": "player_low_hp",
+        "cooldown_ms": 3000,
+        "enabled": true,
+        "display_name": "低血量预警"
+    },
+    {
+        "event_id": "player_on_fire",
+        "command_id": "player_on_fire",
+        "cooldown_ms": 1500,
+        "enabled": true,
+        "display_name": "玩家着火"
+    },
+    {
+        "event_id": "player_drown",
+        "command_id": "player_drown",
+        "cooldown_ms": 2000,
+        "enabled": true,
+        "display_name": "玩家溺水"
+    },
+    {
+        "event_id": "explosion_nearby",
+        "command_id": "explosion_nearby",
+        "cooldown_ms": 5000,
+        "enabled": true,
+        "display_name": "附近爆炸"
+    },
+    {
+        "event_id": "player_poisoned",
+        "command_id": "player_poisoned",
+        "cooldown_ms": 3000,
+        "enabled": true,
+        "display_name": "中毒状态"
+    },
+    {
+        "event_id": "mob_nearby",
+        "command_id": "mob_nearby",
+        "cooldown_ms": 5000,
+        "enabled": true,
+        "display_name": "附近有怪物"
+    }
+]

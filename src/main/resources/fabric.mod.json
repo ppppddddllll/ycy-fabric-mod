@@ -1,0 +1,30 @@
+{
+    "schemaVersion": 1,
+    "id": "ycy-link",
+    "version": "${version}",
+    "name": "YCY Link",
+    "description": "役次元 × Minecraft Fabric联动模组 - 游戏事件驱动玩具控制",
+    "authors": ["YCY"],
+    "contact": {
+        "homepage": "https://github.com/YCY-YOKONEX",
+        "sources": "https://github.com/YCY-YOKONEX/YCY-YOKONEX-OpenSource"
+    },
+    "license": "MIT",
+    "icon": "assets/ycy/icon.png",
+    "environment": "client",
+    "entrypoints": {
+        "client": ["com.ycy.fabric.YcyModClient"],
+        "modmenu": ["com.ycy.fabric.config.ModMenuIntegration"]
+    },
+    "mixins": ["ycy.mixins.json"],
+    "depends": {
+        "fabricloader": ">=0.15.0",
+        "minecraft": "~1.20.1",
+        "java": ">=17",
+        "fabric-api": "*",
+        "cloth-config": ">=11.0.0"
+    },
+    "suggests": {
+        "modmenu": ">=7.0.0"
+    }
+}
