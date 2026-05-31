@@ -75,26 +75,40 @@ public class BridgeManager {
     }
 
     private void installDependenciesAsync() {
-        lastError = "正在安装依赖...";
+        lastError = "正在后台安装依赖...";
+        YcyModClient.LOGGER.info("[YCY] ==========================================");
+        YcyModClient.LOGGER.info("[YCY] 首次启动，正在 npm install...");
+        YcyModClient.LOGGER.info("[YCY] 路径: {}", bridgeDir);
+        YcyModClient.LOGGER.info("[YCY] ==========================================");
         new Thread(() -> {
-            YcyModClient.LOGGER.info("[YCY] npm install...");
             try {
+                // First verify node exists
+                ProcessBuilder checkNode = new ProcessBuilder("node", "--version");
+                checkNode.redirectErrorStream(true);
+                Process check = checkNode.start();
+                int nodeCheck = check.waitFor();
+                if (nodeCheck != 0) {
+                    lastError = "未找到 Node.js，请安装 https://nodejs.org";
+                    YcyModClient.LOGGER.error("[YCY] node not found! exit={}", nodeCheck);
+                    return;
+                }
+
                 ProcessBuilder pb = new ProcessBuilder("npm", "install", "--no-audit", "--no-fund")
                         .directory(bridgeDir.toFile()).redirectErrorStream(true);
                 Process p = pb.start();
+                String out = new String(p.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
                 int exit = p.waitFor();
                 if (exit == 0) {
                     YcyModClient.LOGGER.info("[YCY] npm install OK");
                     lastError = "";
                     startBridgeProcess();
                 } else {
-                    String out = new String(p.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-                    YcyModClient.LOGGER.error("[YCY] npm install failed: {}", out);
-                    lastError = "npm install 失败";
+                    YcyModClient.LOGGER.error("[YCY] npm install FAILED (exit {}): {}", exit, out);
+                    lastError = "npm install 失败，请手动执行";
                 }
             } catch (Exception e) {
-                YcyModClient.LOGGER.error("[YCY] npm install error. Node.js installed?", e);
-                lastError = "需要安装 Node.js 18+";
+                YcyModClient.LOGGER.error("[YCY] npm install error: {}", e.getMessage());
+                lastError = "安装失败: " + e.getMessage();
             }
         }, "YCY-NpmInstall").start();
     }

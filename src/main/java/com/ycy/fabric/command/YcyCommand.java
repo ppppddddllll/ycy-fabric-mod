@@ -13,6 +13,8 @@ import net.minecraft.text.Style;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 
+import java.io.IOException;
+
 /**
  * /ycy commands:
  *   /ycy gui                     Open config GUI
@@ -96,11 +98,37 @@ public class YcyCommand {
                 return 1;
             }));
 
+            // /ycy bridge — diagnostic info
+            root.then(ClientCommandManager.literal("bridge").executes(ctx -> {
+                BridgeManager bm = BridgeManager.instance();
+                send(ctx.getSource(), Text.literal("=== 桥接诊断 ===").formatted(Formatting.GOLD));
+                send(ctx.getSource(), Text.literal("URL: " + bm.getUrl()));
+                send(ctx.getSource(), Text.literal("WS已开: " + bm.isWsOpen()));
+                send(ctx.getSource(), Text.literal("已登录: " + bm.isConnected()));
+                send(ctx.getSource(), Text.literal("桥接运行: " + bm.isBridgeRunning()));
+                String err = bm.getLastError();
+                if (!err.isEmpty()) {
+                    send(ctx.getSource(), Text.literal("错误: " + err).formatted(Formatting.RED));
+                }
+                send(ctx.getSource(), Text.literal("已装Node: " + checkNodeInstalled()));
+                return 1;
+            }));
+
             dispatcher.register(root);
         });
     }
 
     private static void send(FabricClientCommandSource src, Text text) {
         src.sendFeedback(text);
+    }
+
+    private static String checkNodeInstalled() {
+        try {
+            Process p = new ProcessBuilder("node", "--version").start();
+            String v = new String(p.getInputStream().readAllBytes()).trim();
+            return p.waitFor() == 0 ? v : "未安装";
+        } catch (Exception e) {
+            return "未安装";
+        }
     }
 }
