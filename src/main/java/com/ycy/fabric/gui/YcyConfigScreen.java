@@ -250,21 +250,19 @@ public class YcyConfigScreen extends Screen {
         // Connection status
         String statusText;
         int statusColor;
-        try {
-            BridgeManager bm = BridgeManager.instance();
-            if (!bm.isWsOpen()) {
-                statusText = "未连接";
-                statusColor = 0xFF5555;
-            } else if (bm.isConnected()) {
-                statusText = "已登录";
-                statusColor = 0x55FF55;
-            } else {
-                statusText = "已连接(未登录)";
-                statusColor = 0xFFFF55;
-            }
-        } catch (Exception e) {
-            statusText = "WebSocket 不可用";
+        BridgeManager bm = BridgeManager.instance();
+        if (!bm.isBridgeRunning()) {
+            statusText = "桥接未启动 (Node.js 安装了吗?)";
             statusColor = 0xFF5555;
+        } else if (!bm.isWsOpen()) {
+            statusText = "WebSocket 未连接";
+            statusColor = 0xFF5555;
+        } else if (!bm.isConnected()) {
+            statusText = "已连接(未登录) — Token 是否正确?";
+            statusColor = 0xFFFF55;
+        } else {
+            statusText = "已登录";
+            statusColor = 0x55FF55;
         }
         ctx.drawTextWithShadow(this.textRenderer,
                 Text.literal("状态: " + statusText), left, y + 195, statusColor);

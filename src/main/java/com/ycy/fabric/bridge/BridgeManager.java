@@ -17,11 +17,6 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Manages the embedded Node.js bridge server + WebSocket client
- * Protocol matches YCY-YOKONEX/API-bridge WebSocket API exactly:
- *   login:  {"type":"login",  "uid":"5", "token":"..."}
- *   cmd:    {"type":"sendCommand", "commandId":"player_hurt"}
- *   status: {"type":"getStatus"}
- *   ping:   {"type":"ping"}
  */
 public class BridgeManager {
     private static final BridgeManager INSTANCE = new BridgeManager();
@@ -34,15 +29,14 @@ public class BridgeManager {
     private ModWsClient wsClient;
     private ScheduledExecutorService heartbeatExecutor;
 
-    // State
     private String wsUrl = DEFAULT_WS_URL;
     private boolean bridgeLaunched = false;
     private boolean wsConnected = false;
     private boolean isLoggedIn = false;
     private int connectRetry = 0;
     private long lastTick = 0;
+    private String lastError = "";
 
-    // Callbacks
     private Runnable onReady;
     private Runnable onDisconnect;
 
@@ -81,6 +75,7 @@ public class BridgeManager {
     }
 
     private void installDependenciesAsync() {
+        lastError = "正在安装依赖...";
         new Thread(() -> {
             YcyModClient.LOGGER.info("[YCY] npm install...");
             try {
@@ -90,12 +85,17 @@ public class BridgeManager {
                 int exit = p.waitFor();
                 if (exit == 0) {
                     YcyModClient.LOGGER.info("[YCY] npm install OK");
+                    lastError = "";
                     startBridgeProcess();
                 } else {
                     String out = new String(p.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
                     YcyModClient.LOGGER.error("[YCY] npm install failed: {}", out);
+                    lastError = "npm install 失败";
                 }
-            } catch (Exception e) { YcyModClient.LOGGER.error("[YCY] npm install error", e); }
+            } catch (Exception e) {
+                YcyModClient.LOGGER.error("[YCY] npm install error. Node.js installed?", e);
+                lastError = "需要安装 Node.js 18+";
+            }
         }, "YCY-NpmInstall").start();
     }
 
@@ -110,6 +110,7 @@ public class BridgeManager {
                     .directory(bridgeDir.toFile()).redirectErrorStream(true);
             bridgeProcess = pb.start();
             bridgeLaunched = true;
+            lastError = "";
 
             new Thread(() -> {
                 try (BufferedReader br = new BufferedReader(
@@ -121,27 +122,35 @@ public class BridgeManager {
 
             Thread.sleep(1500);
             connectWebSocket();
-        } catch (Exception e) { YcyModClient.LOGGER.error("[YCY] Bridge start failed", e); }
+        } catch (Exception e) {
+            YcyModClient.LOGGER.error("[YCY] Bridge start failed", e);
+            lastError = "桥接启动失败: " + e.getMessage();
+        }
     }
 
     // ==================== WebSocket ====================
 
     public void setWsUrl(String url) { this.wsUrl = url; }
 
-    private void connectWebSocket() {
-        if (wsClient != null && wsClient.isOpen()) return;
+    private synchronized void connectWebSocket() {
+        // Clean up old client first
+        if (wsClient != null) {
+            try { wsClient.close(); } catch (Exception ignored) {}
+            wsClient = null;
+        }
+
         YcyModClient.LOGGER.info("[YCY] WebSocket connecting to {}", wsUrl);
         try {
             wsClient = new ModWsClient(URI.create(wsUrl));
             wsClient.connect();
-        } catch (Exception e) { YcyModClient.LOGGER.error("[YCY] WS connect failed: {}", e.getMessage()); }
+        } catch (Exception e) {
+            YcyModClient.LOGGER.error("[YCY] WS connect failed: {}", e.getMessage());
+            lastError = "WebSocket 连接失败";
+        }
     }
 
-    /**
-     * Login with UID and Token (matching API-bridge protocol)
-     */
     public void login(String uid, String token) {
-        YcyModClient.LOGGER.info("[YCY] Login uid={}, token=***", uid);
+        YcyModClient.LOGGER.info("[YCY] Login uid={}", uid);
         if (!isWsOpen()) {
             connectWebSocket();
             return;
@@ -154,13 +163,14 @@ public class BridgeManager {
     }
 
     /**
-     * Reconnect: close existing WebSocket and create new one
-     * Auto-login happens in onOpen() with saved credentials
+     * Reconnect: close existing WebSocket and create new one.
+     * Auto-login happens in onOpen() with saved credentials.
      */
     public void reconnect() {
         YcyModClient.LOGGER.info("[YCY] Reconnecting...");
+        lastError = "";
         if (wsClient != null) {
-            try { wsClient.closeBlocking(); } catch (Exception ignored) {}
+            try { wsClient.close(); } catch (Exception ignored) {}
             wsClient = null;
         }
         wsConnected = false;
@@ -177,9 +187,7 @@ public class BridgeManager {
         sendWs(json.toString());
     }
 
-    public void stopAll() {
-        sendCommand("_stop_all");
-    }
+    public void stopAll() { sendCommand("_stop_all"); }
 
     private void sendWs(String message) {
         if (wsClient != null && wsClient.isOpen()) {
@@ -193,6 +201,8 @@ public class BridgeManager {
     public boolean isConnected() { return isLoggedIn; }
     public boolean isWsOpen() { return wsClient != null && wsClient.isOpen(); }
     public String getUrl() { return wsUrl; }
+    public String getLastError() { return lastError; }
+    public boolean isBridgeRunning() { return bridgeLaunched && bridgeProcess != null && bridgeProcess.isAlive(); }
 
     // ==================== Tick ====================
 
@@ -204,11 +214,13 @@ public class BridgeManager {
         // Monitor bridge process
         if (bridgeLaunched && bridgeProcess != null && !bridgeProcess.isAlive()) {
             bridgeLaunched = false;
+            wsConnected = false;
+            isLoggedIn = false;
             if (connectRetry < 3) { connectRetry++; startBridgeProcess(); }
             return;
         }
 
-        // Reconnect WebSocket if needed
+        // Reconnect WebSocket if bridge is up but WS is down
         if (bridgeLaunched && !isWsOpen()) {
             if (connectRetry < 5) { connectRetry++; connectWebSocket(); }
         }
@@ -219,11 +231,7 @@ public class BridgeManager {
     private void startHeartbeat() {
         if (heartbeatExecutor != null) heartbeatExecutor.shutdownNow();
         heartbeatExecutor = Executors.newSingleThreadScheduledExecutor();
-        heartbeatExecutor.scheduleAtFixedRate(() -> {
-            if (wsClient != null && wsClient.isOpen()) {
-                sendWs("{\"type\":\"ping\"}");
-            }
-        }, 30, 30, TimeUnit.SECONDS);
+        heartbeatExecutor.scheduleAtFixedRate(() -> sendWs("{\"type\":\"ping\"}"), 30, 30, TimeUnit.SECONDS);
     }
 
     private void stopHeartbeat() {
@@ -234,7 +242,7 @@ public class BridgeManager {
 
     public void shutdown() {
         stopHeartbeat();
-        if (wsClient != null) { try { wsClient.closeBlocking(); } catch (Exception ignored) {} wsClient = null; }
+        if (wsClient != null) { try { wsClient.close(); } catch (Exception ignored) {} wsClient = null; }
         if (bridgeProcess != null && bridgeProcess.isAlive()) { bridgeProcess.destroyForcibly(); }
         wsConnected = false;
         isLoggedIn = false;
@@ -249,8 +257,9 @@ public class BridgeManager {
         public void onOpen(ServerHandshake handshake) {
             wsConnected = true;
             connectRetry = 0;
+            lastError = "";
             startHeartbeat();
-            YcyModClient.LOGGER.info("[YCY] WebSocket connected");
+            YcyModClient.LOGGER.info("[YCY] WebSocket connected to bridge");
 
             // Auto-login with saved credentials
             String uid = YcyModClient.getConfigManager().loadUid();
@@ -276,13 +285,16 @@ public class BridgeManager {
                         break;
 
                     case "status":
-                        boolean ready = json.has("isReady") && json.get("isReady").getAsBoolean();
-                        if (json.has("data") && json.get("data").isJsonObject()) {
+                        boolean ready = false;
+                        if (json.has("isReady")) {
+                            ready = json.get("isReady").getAsBoolean();
+                        } else if (json.has("data") && json.get("data").isJsonObject()) {
                             JsonObject data = json.getAsJsonObject("data");
                             ready = data.has("isReady") && data.get("isReady").getAsBoolean();
                         }
                         if (ready && !isLoggedIn) {
                             isLoggedIn = true;
+                            lastError = "";
                             YcyModClient.LOGGER.info("[YCY] IM ready, logged in");
                             if (onReady != null) onReady.run();
                         }
@@ -293,34 +305,29 @@ public class BridgeManager {
                         YcyModClient.LOGGER.info("[YCY] Login result: {}", ok ? "OK" : "FAILED");
                         if (ok && !isLoggedIn) {
                             isLoggedIn = true;
+                            lastError = "";
                             if (onReady != null) onReady.run();
+                        } else {
+                            String msg = json.has("message") ? json.get("message").getAsString() : "登录失败";
+                            lastError = msg;
+                            YcyModClient.LOGGER.warn("[YCY] Login failed: {}", msg);
                         }
                         break;
 
                     case "commandResult":
-                        if (json.has("success") && json.get("success").getAsBoolean()) {
-                            String cmd = json.has("commandId") ? json.get("commandId").getAsString() : "?";
-                            YcyModClient.LOGGER.debug("[YCY] Command OK: {}", cmd);
-                        } else {
+                        if (json.has("success") && !json.get("success").getAsBoolean()) {
                             String err = json.has("message") ? json.get("message").getAsString() : "unknown";
                             YcyModClient.LOGGER.warn("[YCY] Command failed: {}", err);
                         }
                         break;
 
-                    case "message":
-                        YcyModClient.LOGGER.debug("[YCY] IM message received");
-                        break;
-
-                    case "heartbeat":
-                        break;
-
                     case "error":
-                        String errMsg = json.has("message") ? json.get("message").getAsString() : "unknown";
-                        YcyModClient.LOGGER.warn("[YCY] Server error: {}", errMsg);
+                        lastError = json.has("message") ? json.get("message").getAsString() : "unknown error";
+                        YcyModClient.LOGGER.warn("[YCY] Server error: {}", lastError);
                         break;
 
                     default:
-                        YcyModClient.LOGGER.debug("[YCY] Unknown type: {}", type);
+                        break;
                 }
             } catch (Exception e) {
                 YcyModClient.LOGGER.debug("[YCY] Raw: {}", message);
@@ -332,12 +339,13 @@ public class BridgeManager {
             wsConnected = false;
             isLoggedIn = false;
             stopHeartbeat();
-            YcyModClient.LOGGER.warn("[YCY] WS closed ({}) {}", code, reason);
+            YcyModClient.LOGGER.warn("[YCY] WS closed ({}): {}", code, reason);
             if (onDisconnect != null) onDisconnect.run();
         }
 
         @Override
         public void onError(Exception ex) {
+            lastError = "WebSocket 错误: " + ex.getMessage();
             YcyModClient.LOGGER.error("[YCY] WS error: {}", ex.getMessage());
         }
     }
