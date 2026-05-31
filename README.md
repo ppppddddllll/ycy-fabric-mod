@@ -145,18 +145,8 @@ cd ycy-fabric-mod
 | 玩家加入 | `player_join` |
 | 玩家离开 | `player_leave` |
 | 玩家聊天 | `player_chat` |
-| 破坏方块 | `block_break` |
-| 放置方块 | `block_place` |
-| 左键挖方块 | `block_attack` |
-| 使用物品 | `item_use` |
-| 低血量预警 | `player_low_hp` |
-| 玩家着火 | `player_on_fire` |
-| 玩家溺水 | `player_drown` |
-| 附近爆炸 | `explosion_nearby` |
-| 中毒状态 | `player_poisoned` |
-| 附近有怪物 | `mob_nearby` |
 
-每个指令绑定对应的玩具设备，电击强度建议 15～40。
+> 如需更多事件，在 `events.json` 中添加即可。内置支持的 event_id 有：`block_break`, `block_place`, `block_attack`, `item_use`, `player_low_hp`, `player_on_fire`, `player_drown`, `explosion_nearby`, `player_poisoned`, `mob_nearby`。
 
 ### 分享给玩家
 
@@ -253,7 +243,7 @@ cd ycy-fabric-mod
 
 ## 预设事件列表
 
-共 16 种预设事件，默认全部启用：
+共 6 种预设事件，默认全部启用：
 
 | 事件ID | 中文名 | 指令ID | 冷却 |
 |--------|--------|--------|------|
@@ -263,16 +253,8 @@ cd ycy-fabric-mod
 | `player_join` | 玩家加入 | `player_join` | 3s |
 | `player_leave` | 玩家离开 | `player_leave` | 3s |
 | `player_chat` | 玩家聊天 | `player_chat` | 1s |
-| `block_break` | 破坏方块 | `block_break` | 0.5s |
-| `block_place` | 放置方块 | `block_place` | 0.5s |
-| `block_attack` | 左键挖方块 | `block_attack` | 0.5s |
-| `item_use` | 使用物品 | `item_use` | 0.5s |
-| `player_low_hp` | 低血量预警 | `player_low_hp` | 3s |
-| `player_on_fire` | 玩家着火 | `player_on_fire` | 1.5s |
-| `player_drown` | 玩家溺水 | `player_drown` | 2s |
-| `explosion_nearby` | 附近爆炸 | `explosion_nearby` | 5s |
-| `player_poisoned` | 中毒状态 | `player_poisoned` | 3s |
-| `mob_nearby` | 附近有怪物 | `mob_nearby` | 5s |
+
+> 更多事件类型（方块破坏、放置、低血量、着火、溺水、爆炸、中毒、怪物等）已内置在 `GameEventType.java` 中，用户可自行在 `events.json` 添加即可启用。
 
 ---
 
