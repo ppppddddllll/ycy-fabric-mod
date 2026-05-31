@@ -124,7 +124,14 @@ public class YcyCommand {
 
     private static String checkNodeInstalled() {
         try {
-            Process p = new ProcessBuilder("node", "--version").start();
+            boolean isWin = System.getProperty("os.name").toLowerCase().contains("win");
+            ProcessBuilder pb;
+            if (isWin) {
+                pb = new ProcessBuilder("cmd", "/c", "node --version");
+            } else {
+                pb = new ProcessBuilder("node", "--version");
+            }
+            Process p = pb.start();
             String v = new String(p.getInputStream().readAllBytes()).trim();
             return p.waitFor() == 0 ? v : "未安装";
         } catch (Exception e) {
