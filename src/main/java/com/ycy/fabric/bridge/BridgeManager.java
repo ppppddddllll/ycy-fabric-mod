@@ -327,9 +327,9 @@ public class BridgeManager {
                             loggedIn = true;
                             lastError = "";
                             if (onReady != null) onReady.run();
-                        } else if (!ready) {
-                            loggedIn = false;
                         }
+                        // Don't set loggedIn=false on transient isReady=false.
+                        // The bridge auto-reconnects in 5s. Only WS close/error can log out.
                         break;
                     case "loginResult":
                         lastPongTime = System.currentTimeMillis();
