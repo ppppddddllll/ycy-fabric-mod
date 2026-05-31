@@ -3,10 +3,23 @@
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Minecraft](https://img.shields.io/badge/Minecraft-1.20.1-blue)](https://www.minecraft.net)
 [![Fabric](https://img.shields.io/badge/Fabric--Loader-%3E%3D0.15.0-orange)](https://fabricmc.net)
+[![Build](https://github.com/ppppddddllll/ycy-fabric-mod/actions/workflows/build.yml/badge.svg)](https://github.com/ppppddddllll/ycy-fabric-mod/actions)
 
 让 Minecraft 中的游戏事件**实时联动役次元玩具设备**。受伤时电击、死亡时强刺激、击杀怪物时触发——全部可在 GUI 里自由配置。
 
 本模组移植自 [tzwgoo/Minecraft-YCY-Link](https://github.com/tzwgoo/Minecraft-YCY-Link) 的 Forge 版，针对 Fabric 生态重写并增强。
+
+## 下载
+
+**[→ Releases 页面下载最新 JAR](https://github.com/ppppddddllll/ycy-fabric-mod/releases)**
+
+或自行构建（需要 JDK 17+）：
+```bash
+git clone https://github.com/ppppddddllll/ycy-fabric-mod.git
+cd ycy-fabric-mod
+./gradlew build   # Windows: gradlew.bat build
+```
+构建产物在 `build/libs/ycy-link-1.0.0.jar`。
 
 ---
 
@@ -340,25 +353,6 @@ Node.js Bridge Server
     │ 构造 IM 消息: {code:"game_cmd", id:"player_hurt", token:"..."}
     ▼
 Tencent IM → 役次元 App → 玩具设备触发
-```
-
----
-
-## 开发构建
-
-```bash
-git clone https://github.com/ppppddddllll/ycy-fabric-mod.git
-cd ycy-fabric-mod
-./gradlew build
-```
-
-构建产物：
-- `build/libs/ycy-link-1.0.0.jar` — 模组 JAR
-- `build/libs/ycy-link-1.0.0-sources.jar` — 源码 JAR
-
-运行测试客户端：
-```bash
-./gradlew runClient
 ```
 
 ---
